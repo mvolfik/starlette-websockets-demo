@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Starlette WebSocket test</title>
+    <style type="text/css">
+        #channels > div > span {
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+
+        #channels > div > div {
+            margin-left: 2em;
+            white-space: pre;
+        }
+
+        #channels > div > * {
+            margin-right: 1em;
+        }
+
+        #channels {
+            border-bottom: 1px solid black;
+        }
+    </style>
+</head>
+<body>
+<p>Channels:</p>
+<div id="channels">
+
+</div>
+<input id="new-channel-input"/>
+<button id="new-channel-button">Add Channel</button>
+<script type="text/javascript">
+    'use strict';
+
+    const newChannelInput = document.getElementById("new-channel-input");
+    const newChannelButton = document.getElementById("new-channel-button");
+    const channelsDiv = document.getElementById("channels");
+
+    newChannelInput.onkeyup = (e) => {
+        if (e.key === "Enter") {
+            e.preventDefault();
+            newChannelButton.click();
+        }
+    };
+
+    newChannelButton.onclick = () => createChannel(newChannelInput.value);
+
+
+    const socket = new WebSocket("ws://localhost:8000/socket");
+    socket.addEventListener("message", messageHandler);
+    socket.onclose = () => alert("Server closed connection");
+
+    async function sendMessage(value, channel) {
+        const response = await fetch("/push/" + channel, {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({text: value})
+        });
+        if (response.status !== 200) {
+            alert("Sending message failed");
+        }
+    }
+
+    async function createChannel(id) {
+        const response = await fetch("/new-channel?id=" + encodeURIComponent(id));
+        if (response.status !== 200) {
+            alert("Creating channel failed");
+        }
+    }
+
+    async function deleteChannel(id) {
+        const response = await fetch("/del-channel?id=" + encodeURIComponent(id));
+        if (response.status !== 200) {
+            alert("Deleting channel failed");
+        }
+    }
+
+    function messageHandler(event) {
+        const data = JSON.parse(event.data);
+        if (data.t === "new") {
+            const channel = data.id;
+
+            const div = document.createElement("div");
+            div.id = "channel-" + channel;
+
+            const span = document.createElement("span");
+            span.innerText = channel;
+            div.appendChild(span);
+
+            const delButton = document.createElement("button");
+            delButton.innerText = "Delete channel";
+            delButton.onclick = () => deleteChannel(channel);
+            div.appendChild(delButton);
+
+            const input = document.createElement("input");
+            input.placeholder = "Message";
+            div.appendChild(input);
+
+            const sendButton = document.createElement("button");
+            sendButton.innerText = "Send Message";
+            sendButton.onclick = () => sendMessage(input.value, channel);
+            input.onkeyup = (e) => {
+                if (e.key === "Enter") {
+                    e.preventDefault();
+                    sendButton.click();
+                }
+            };
+            div.appendChild(sendButton);
+
+            const CBLabel = document.createElement("label");
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = false;
+            checkbox.onchange = () => socket.send((checkbox.checked ? "sub" : "pop") + channel);
+            CBLabel.append(checkbox, " Subscribe");
+            div.appendChild(CBLabel);
+
+            const innerDiv = document.createElement("div");
+            innerDiv.id = "channel-" + channel + "-msgs";
+            div.appendChild(innerDiv);
+
+            channelsDiv.appendChild(div);
+
+        } else if (data.t === "del") {
+            document.getElementById("channel-" + data.id).remove();
+        } else if (data.t === "msg") {
+            document.getElementById("channel-" + data.id + "-msgs").innerText += "\n" + JSON.stringify(data.msg, null, 2);
+        }
+    }
+</script>
+</body>
+</html>
