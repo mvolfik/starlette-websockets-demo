@@ -1,20 +1,24 @@
 import asyncio
+import os
 from typing import Dict, Set, Tuple
 
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import FileResponse, PlainTextResponse, Response
-from starlette.routing import Route, WebSocketRoute
 from starlette.websockets import WebSocket, WebSocketDisconnect
+
+app = Starlette(debug=os.environ.get("DEBUG") == "debug")
 
 sockets_index: Dict[int, Tuple[WebSocket, Set[str]]] = dict()
 all_channels = set()
 
 
+@app.route("/")
 def index(_: Request) -> Response:
     return FileResponse("index.html")
 
 
+@app.route("/push/{channel}", methods=["POST"])
 async def push(request: Request) -> Response:
     channel = request.path_params["channel"]
     if channel not in all_channels:
@@ -43,6 +47,7 @@ async def broadcast_advertise_channel(channel: str, delete: bool = False) -> Non
     )
 
 
+@app.route("/new-channel")
 async def new_channel(request: Request):
     channel = request.query_params.get("id")
     if channel is None or channel in all_channels:
@@ -54,6 +59,7 @@ async def new_channel(request: Request):
     return PlainTextResponse("Done")
 
 
+@app.route("/del-channel")
 async def del_channel(request):
     channel = request.query_params.get("id")
     if channel is None or channel not in all_channels:
@@ -67,6 +73,7 @@ async def del_channel(request):
     return PlainTextResponse("Done")
 
 
+@app.websocket_route("/socket")
 async def socket_endpoint(socket):
     await socket.accept()
     sock_id = id(socket)
@@ -90,14 +97,3 @@ async def socket_endpoint(socket):
                 subscriptions.add(channel)
         elif verb == "pop":
             subscriptions.discard(msg[3:])
-
-
-routes = [
-    Route("/", index),
-    Route("/push/{channel}", push, methods=["POST"]),
-    Route("/new-channel", new_channel),
-    Route("/del-channel", del_channel),
-    WebSocketRoute("/socket", socket_endpoint),
-]
-
-app = Starlette(debug=True, routes=routes)
