@@ -1,0 +1,56 @@
+name: Source analysis
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - app.py
+      - test_app.py
+  pull_request:
+    branches:
+      - master
+    paths:
+      - app.py
+      - test_app.py
+      - Pipfile.lock
+
+jobs:
+  coverage:
+    runs-on: ubuntu-20.04
+    name: "Generate & upload coverage report"
+    env:
+      OS: ubuntu-latest
+      PYTHON: '3.8'
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: "Install dependencies"
+      run: |
+        python3.8 -m pip install pipenv
+        ~/.local/bin/pipenv install --dev
+
+    - name: "Test & generate coverage report"
+      run: "~/.local/bin/pipenv run pytest --cov=app --cov-branch"
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v1
+      with:
+        env_vars: OS,PYTHON
+        flags: unit-tests,pytest,gh-actions
+
+  mypy:
+    runs-on: ubuntu-20.04
+    name: "Typecheck with mypy"
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: "Install dependencies"
+      run: |
+        python3.8 -m pip install pipenv
+        ~/.local/bin/pipenv install --dev
+
+    - name: "Run mypy"
+      run: "~/.local/bin/pipenv run mypy --strict app.py"

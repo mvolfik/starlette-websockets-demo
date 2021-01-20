@@ -19,7 +19,7 @@ def index(_: Request) -> Response:
 
 
 @app.route("/push/{channel}", methods=["POST"])
-async def push(request: Request) -> Response:
+async def push(request: Request) -> PlainTextResponse:
     channel = request.path_params["channel"]
     if channel not in all_channels:
         return PlainTextResponse("Channel doesn't exist", status_code=400)
@@ -34,7 +34,9 @@ async def push(request: Request) -> Response:
     return PlainTextResponse("Done")
 
 
-async def advertise_channel(channel: str, socket: WebSocket, delete: bool = False):
+async def advertise_channel(
+    channel: str, socket: WebSocket, delete: bool = False
+) -> None:
     await socket.send_json({"t": "del" if delete else "new", "id": channel})
 
 
@@ -48,7 +50,7 @@ async def broadcast_advertise_channel(channel: str, delete: bool = False) -> Non
 
 
 @app.route("/new-channel")
-async def new_channel(request: Request):
+async def new_channel(request: Request) -> PlainTextResponse:
     channel = request.query_params.get("id")
     if channel is None or channel in all_channels:
         return PlainTextResponse(
@@ -60,7 +62,7 @@ async def new_channel(request: Request):
 
 
 @app.route("/del-channel")
-async def del_channel(request):
+async def del_channel(request: Request) -> PlainTextResponse:
     channel = request.query_params.get("id")
     if channel is None or channel not in all_channels:
         return PlainTextResponse(
@@ -74,10 +76,10 @@ async def del_channel(request):
 
 
 @app.websocket_route("/socket")
-async def socket_endpoint(socket):
+async def socket_endpoint(socket: WebSocket) -> None:
     await socket.accept()
     sock_id = id(socket)
-    subscriptions = set()
+    subscriptions: Set[str] = set()
     sockets_index[sock_id] = (socket, subscriptions)
     await asyncio.gather(
         *[advertise_channel(channel, socket, False) for channel in all_channels]
