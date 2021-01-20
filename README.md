@@ -8,7 +8,7 @@ Run with
 pipenv --python 3.8
 pipenv shell
 pipenv install
-uvicorn app:app
+uvicorn starlette_websocket_demo:app
 ```
 
 # Protocol
