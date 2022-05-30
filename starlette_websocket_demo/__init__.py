@@ -14,4 +14,4 @@ routes = [
     WebSocketRoute("/socket", socket_endpoint),
 ]
 
-app = Starlette(debug=os.environ.get("DEBUG") == "debug")
+app = Starlette(debug=os.environ.get("DEBUG") == "debug", routes=routes)
